@@ -46,8 +46,8 @@ class GlobalContext:
     gaming_source: Optional[str] = None  # e.g. "tv", "pc", "none"
     entertainment_active: Optional[bool] = None
     activity: Optional[str] = None
-    # Real TV truth (core_devices master). False = TV verifiably off,
-    # None = unbound/unknown/unavailable → fail-open (no gating).
+    # Authoritative TV truth (core_devices master). False = verifiably off;
+    # None = unbound/unknown/unavailable, so the bias-light state is held.
     tv_active: Optional[bool] = None
     now_ts: float = 0.0                  # seconds since epoch (testable)
 
@@ -465,36 +465,31 @@ def _decide_appliance(cfg, state, ctx, active_state, make) -> Decision:
 
 
 def _decide_bias_light(cfg, state, ctx, make) -> Decision:
-    """Bias Light follows the TV stack, not broad entertainment activity."""
+    """Bias Light follows the authoritative TV master, except during sleep."""
     if ctx.asleep:
         if state.switch_state == "off":
             return make(DESIRED_KEEP, "bias light: sleep — already off", ["bio=sleep"])
         return make(DESIRED_OFF, "bias light: stop on sleep", ["bio=sleep"])
 
-    media = (ctx.media_context or "").lower()
-    gaming_source = (ctx.gaming_source or "").lower()
-    want_on = media in {"movie", "streaming", "tv", "video"} or (
-        media == "gaming" and gaming_source == "tv"
-    )
-    if want_on and ctx.tv_active is False:
-        # control#35: the TV master reports a clean off, but the TV-stack
-        # context can trail it by ~20-30 s (PS5 shutdown tail + feeder
-        # debounce). That stale signal must not (re)arm the bias light —
-        # a real TV-on lifts this gate immediately via the master binding.
+    if ctx.tv_active is None:
+        return make(
+            DESIRED_KEEP,
+            "bias light: TV master unknown — hold current state",
+            ["tv=unknown"],
+        )
+
+    if ctx.tv_active is False:
         if state.switch_state == "off":
             return make(
                 DESIRED_KEEP,
-                "bias light: TV off — stale TV stack tail, already off",
+                "bias light: TV off — already off",
                 ["tv=off"],
             )
-        return make(DESIRED_OFF, "bias light: TV off — stale TV stack tail", ["tv=off"])
-    if want_on:
-        if state.switch_state == "on":
-            return make(DESIRED_KEEP, "bias light: TV stack active, already on")
-        return make(DESIRED_ON, "bias light: TV stack active")
-    if state.switch_state == "off":
-        return make(DESIRED_KEEP, "bias light: TV stack inactive, already off")
-    return make(DESIRED_OFF, "bias light: TV stack inactive")
+        return make(DESIRED_OFF, "bias light: TV off", ["tv=off"])
+
+    if state.switch_state == "on":
+        return make(DESIRED_KEEP, "bias light: TV on, already on")
+    return make(DESIRED_ON, "bias light: TV on")
 
 
 def _decide_diffuser(cfg, state, ctx, make) -> Decision:

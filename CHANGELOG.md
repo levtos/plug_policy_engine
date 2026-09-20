@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.5
+
+- Issue #22: Bias-Light decisions now use `sensor.benni_master_tv` as the sole
+  TV on/off truth instead of deriving a second truth from Media State and gaming
+  transitions. `bio=sleep` remains the hard off override; returning to awake
+  follows the TV master again.
+- Unknown or unavailable TV-master input now holds the existing Bias-Light state
+  and cannot create commands from stale Media-/Gaming fallbacks.
+
 ## 0.3.4
 
 - control#35: Bias-Light re-armed itself for ~20-30 s after a real TV-off

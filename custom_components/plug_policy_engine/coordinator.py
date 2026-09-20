@@ -310,10 +310,10 @@ class PlugPolicyCoordinator:
         return s.lower() in ("on", "true", "1", "active", "playing")
 
     def _read_tv_active(self, entity_id: str | None) -> bool | None:
-        """TV-Master-Wahrheit (control#35): nur ein sauberes Aus blockt.
+        """Read the authoritative TV-master truth for the bias-light policy.
 
         ``off``/``standby`` → False; ``unknown``/``unavailable``/``degraded``/
-        ungebunden → None (fail-open, kein Fehl-Off bei Master-Dropouts);
+        ungebunden → None (hold, no command during master dropouts);
         alles andere (``active``/``on``/``playing``) → True.
         """
         s = self._read_str(entity_id)
