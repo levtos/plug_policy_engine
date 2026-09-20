@@ -229,92 +229,85 @@ def test_appliance_idle_and_away_cuts_under_ac():
 # --------------------------------------------------------------- bias light
 
 
-def test_bias_light_does_not_turn_on_for_pc_gaming_entertainment():
+def test_bias_light_does_not_turn_on_for_pc_gaming_when_tv_is_off():
     cfg = _cfg(kind=C.KIND_BIAS_LIGHT, policy=C.POLICY_HB)
     d = E.evaluate(cfg, _state(switch_state="off"),
                    _ctx(
                        media_context="gaming",
                        gaming_source="pc",
                        entertainment_active=True,
+                       tv_active=False,
                    ))
     assert d.desired_switch_state == C.DESIRED_KEEP
+    assert "tv=off" in d.blockers
 
 
-def test_bias_light_on_for_tv_gaming():
+def test_bias_light_on_when_tv_master_is_on_even_if_media_is_idle():
     cfg = _cfg(kind=C.KIND_BIAS_LIGHT, policy=C.POLICY_HB)
     d = E.evaluate(cfg, _state(switch_state="off"),
                    _ctx(
-                       media_context="gaming",
-                       gaming_source="tv",
-                       entertainment_active=True,
+                       media_context="idle",
+                       gaming_source="none",
+                       entertainment_active=False,
+                       tv_active=True,
                    ))
     assert d.desired_switch_state == C.DESIRED_ON
 
 
-def test_bias_light_on_via_media_context_movie():
+def test_bias_light_stays_on_across_media_context_transitions_while_tv_is_on():
     cfg = _cfg(kind=C.KIND_BIAS_LIGHT, policy=C.POLICY_HB)
-    d = E.evaluate(cfg, _state(switch_state="off"),
-                   _ctx(media_context="movie"))
-    assert d.desired_switch_state == C.DESIRED_ON
+    contexts = (
+        _ctx(media_context="idle", gaming_source="none", tv_active=True),
+        _ctx(media_context="gaming", gaming_source="tv", tv_active=True),
+        _ctx(media_context="movie", gaming_source="none", tv_active=True),
+        _ctx(media_context="music", gaming_source="pc", tv_active=True),
+    )
+    for ctx in contexts:
+        d = E.evaluate(cfg, _state(switch_state="on"), ctx)
+        assert d.desired_switch_state == C.DESIRED_KEEP
 
 
-def test_bias_light_off_when_idle_media():
+def test_bias_light_off_when_tv_master_is_off_even_if_media_is_tv():
     cfg = _cfg(kind=C.KIND_BIAS_LIGHT, policy=C.POLICY_HB)
     d = E.evaluate(cfg, _state(switch_state="on"),
-                   _ctx(media_context="idle", entertainment_active=False))
+                   _ctx(media_context="movie", entertainment_active=True,
+                        tv_active=False))
     assert d.desired_switch_state == C.DESIRED_OFF
+    assert "tv=off" in d.blockers
 
 
 def test_bias_light_sleep_blocks_entertainment_active():
     cfg = _cfg(kind=C.KIND_BIAS_LIGHT, policy=C.POLICY_HB)
     d = E.evaluate(cfg, _state(switch_state="on"),
-                   _ctx(bio=C.BIO_SLEEP, media_context="movie", entertainment_active=True))
+                   _ctx(bio=C.BIO_SLEEP, media_context="movie", entertainment_active=True,
+                        tv_active=True))
     assert d.desired_switch_state == C.DESIRED_OFF
     assert "bio=sleep" in d.blockers
 
 
-def test_bias_light_tv_off_blocks_stale_tv_stack_tail():
-    # control#35: after a real TV-off the media context can trail as
-    # gaming:tv for ~20-30 s (PS5 shutdown tail) — must not re-arm the plug.
+def test_bias_light_awake_after_sleep_follows_tv_master_again():
     cfg = _cfg(kind=C.KIND_BIAS_LIGHT, policy=C.POLICY_HB)
     d = E.evaluate(cfg, _state(switch_state="off"),
-                   _ctx(media_context="gaming", gaming_source="tv",
-                        entertainment_active=True, tv_active=False))
-    assert d.desired_switch_state == C.DESIRED_KEEP
-    assert "tv=off" in d.blockers
-
-
-def test_bias_light_tv_off_turns_off_when_still_on():
-    cfg = _cfg(kind=C.KIND_BIAS_LIGHT, policy=C.POLICY_HB)
-    d = E.evaluate(cfg, _state(switch_state="on"),
-                   _ctx(media_context="gaming", gaming_source="tv",
-                        entertainment_active=True, tv_active=False))
-    assert d.desired_switch_state == C.DESIRED_OFF
-    assert "tv=off" in d.blockers
-
-
-def test_bias_light_tv_off_blocks_movie_context_too():
-    cfg = _cfg(kind=C.KIND_BIAS_LIGHT, policy=C.POLICY_HB)
-    d = E.evaluate(cfg, _state(switch_state="on"),
-                   _ctx(media_context="movie", tv_active=False))
-    assert d.desired_switch_state == C.DESIRED_OFF
-
-
-def test_bias_light_tv_on_lifts_gate_immediately():
-    cfg = _cfg(kind=C.KIND_BIAS_LIGHT, policy=C.POLICY_HB)
-    d = E.evaluate(cfg, _state(switch_state="off"),
-                   _ctx(media_context="gaming", gaming_source="tv",
-                        entertainment_active=True, tv_active=True))
+                   _ctx(bio=C.BIO_AWAKE, media_context="idle",
+                        entertainment_active=False, tv_active=True))
     assert d.desired_switch_state == C.DESIRED_ON
 
 
-def test_bias_light_tv_unknown_stays_fail_open():
-    # Unbound/degraded TV master must not change behavior (no false offs).
+def test_bias_light_tv_unknown_holds_on_state():
     cfg = _cfg(kind=C.KIND_BIAS_LIGHT, policy=C.POLICY_HB)
-    d = E.evaluate(cfg, _state(switch_state="off"),
+    d = E.evaluate(cfg, _state(switch_state="on"),
                    _ctx(media_context="gaming", gaming_source="tv",
                         entertainment_active=True, tv_active=None))
-    assert d.desired_switch_state == C.DESIRED_ON
+    assert d.desired_switch_state == C.DESIRED_KEEP
+    assert "tv=unknown" in d.blockers
+
+
+def test_bias_light_tv_unknown_holds_off_state():
+    cfg = _cfg(kind=C.KIND_BIAS_LIGHT, policy=C.POLICY_HB)
+    d = E.evaluate(cfg, _state(switch_state="off"),
+                   _ctx(media_context="movie", tv_active=None))
+    assert d.desired_switch_state == C.DESIRED_KEEP
+    assert "tv=unknown" in d.blockers
 
 
 # --------------------------------------------------------------- diffuser

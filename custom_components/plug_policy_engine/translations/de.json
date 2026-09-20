@@ -12,7 +12,7 @@
           "gaming_source_entity": "Gaming-Quelle",
           "entertainment_active_entity": "Entertainment aktiv",
           "activity_entity": "Aktivität (optional)",
-          "tv_active_entity": "TV aktiv (Master; sperrt das Bias Light nach echtem TV-Aus)",
+          "tv_active_entity": "TV aktiv (maßgeblicher Master für das Bias Light)",
           "enable_control": "Integration darf Steckdosen schalten",
           "scan_interval": "Scan-Intervall (s)"
         }

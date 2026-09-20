@@ -12,7 +12,7 @@
           "gaming_source_entity": "Gaming source",
           "entertainment_active_entity": "Entertainment active",
           "activity_entity": "Activity (optional)",
-          "tv_active_entity": "TV active (master; gates the bias light after a real TV-off)",
+          "tv_active_entity": "TV active (authoritative master for the bias light)",
           "enable_control": "Allow integration to switch devices",
           "scan_interval": "Scan interval (s)"
         }
