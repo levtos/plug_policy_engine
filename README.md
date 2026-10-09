@@ -1,3 +1,5 @@
+![IGNIS](brand/logos/logo-256.png)
+
 # Plug Policy Engine
 
 Native Home-Assistant-Integration zur Verwaltung schaltbarer Steckdosen nach
@@ -178,3 +180,8 @@ Die Decision-Engine läuft ohne Home-Assistant-Mock. Abgedeckt:
   Config Entry, damit der Gate-Zustand Reloads und Neustarts überlebt.
 - Ohne `enable_control` liefert die Integration ausschließlich Entscheidungs-Sensoren.
 - Keine blocking I/O im Eventloop.
+
+
+## Unicorn Station branding
+
+**IGNIS** is the product brand. See [asset provenance and HA display conventions](brand/README.md). Technical identities and behavior remain unchanged.
