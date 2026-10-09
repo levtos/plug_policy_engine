@@ -1,0 +1,38 @@
+{
+  "brand": "IGNIS",
+  "repository": "levtos/plug_policy_engine",
+  "domain": "plug_policy_engine",
+  "original_sha256": "42664a634d060207277e8cd5b8d35cf3c0b02f5ef28c185364f852ff6de79da3",
+  "original_size": [
+    1254,
+    1254
+  ],
+  "original_mode": "RGB",
+  "icon_crop_xyxy": [
+    177,
+    0,
+    1077,
+    900
+  ],
+  "resampling": "Pillow LANCZOS",
+  "files": {
+    "brand/icons/icon-128.png": "3f694b256401c31fa5da0a123ceaff194d4b1a8c8b1e91ea490d8974a273e973",
+    "brand/icons/icon-256.png": "e4548b54e90a52bb5655a5413de7bb16f228eefff9c4a513c6ecccb96b71c70c",
+    "brand/icons/icon-32.png": "e52eeec92b63f4540ef006abda09240029acb3be76dbddfd8b9cc89112f76acd",
+    "brand/icons/icon-512.png": "5dbec5dcf22b9feff78c18951f52ce7d5136d165567a2f8a125d3864377cec31",
+    "brand/icons/icon-64.png": "92490c8aaa770e011753ab61ae0af5f9a51ed5ebb48c74c502e5938cf7ca69b8",
+    "brand/logos/logo-1024.png": "70d9bdf018fcd9e8b82b998b212cd6a09d796f660f5454d12d211fe817691555",
+    "brand/logos/logo-128.png": "6ec06dfb2ba747752efef97960bed933c15baf41858e00a6d3cd2ec613baaab5",
+    "brand/logos/logo-256.png": "52be194dcd5c854c4dac5c7d324b411fcd73b38f3245f48c26e332f311b84586",
+    "brand/logos/logo-512.png": "1157458485fb94de01894f772551126dfdfc7094903ea6b2b9e26d5f298fa3dd",
+    "brand/original/IGNIS.png": "42664a634d060207277e8cd5b8d35cf3c0b02f5ef28c185364f852ff6de79da3",
+    "custom_components/plug_policy_engine/brand/dark_icon.png": "e4548b54e90a52bb5655a5413de7bb16f228eefff9c4a513c6ecccb96b71c70c",
+    "custom_components/plug_policy_engine/brand/dark_icon@2x.png": "5dbec5dcf22b9feff78c18951f52ce7d5136d165567a2f8a125d3864377cec31",
+    "custom_components/plug_policy_engine/brand/dark_logo.png": "52be194dcd5c854c4dac5c7d324b411fcd73b38f3245f48c26e332f311b84586",
+    "custom_components/plug_policy_engine/brand/dark_logo@2x.png": "1157458485fb94de01894f772551126dfdfc7094903ea6b2b9e26d5f298fa3dd",
+    "custom_components/plug_policy_engine/brand/icon.png": "e4548b54e90a52bb5655a5413de7bb16f228eefff9c4a513c6ecccb96b71c70c",
+    "custom_components/plug_policy_engine/brand/icon@2x.png": "5dbec5dcf22b9feff78c18951f52ce7d5136d165567a2f8a125d3864377cec31",
+    "custom_components/plug_policy_engine/brand/logo.png": "52be194dcd5c854c4dac5c7d324b411fcd73b38f3245f48c26e332f311b84586",
+    "custom_components/plug_policy_engine/brand/logo@2x.png": "1157458485fb94de01894f772551126dfdfc7094903ea6b2b9e26d5f298fa3dd"
+  }
+}

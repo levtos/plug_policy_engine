@@ -1,5 +1,5 @@
 {
-  "name": "Plug Policy Engine",
+  "name": "IGNIS — Plug Policy Engine",
   "render_readme": true,
   "homeassistant": "2024.6.0",
   "content_in_root": false

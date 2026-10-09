@@ -1,7 +1,7 @@
 {
   "domain": "plug_policy_engine",
-  "name": "Plug Policy Engine",
-  "version": "0.3.5",
+  "name": "IGNIS — Plug Policy Engine",
+  "version": "0.3.6",
   "config_flow": true,
   "documentation": "https://github.com/Levtos/plug_policy_engine",
   "issue_tracker": "https://github.com/Levtos/plug_policy_engine/issues",
