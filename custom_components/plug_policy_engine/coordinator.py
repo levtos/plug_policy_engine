@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
+from time import monotonic
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -90,6 +91,7 @@ _PROFILE_POWER_BY_SWITCH = {
 }
 
 _ACTION_RETRY_SECONDS = 10.0
+_DISPLAY_UNAVAILABLE_WARN_AFTER_SECONDS = 60.0
 # Optional per-entity overrides for the command de-bounce window. Every switch
 # is de-bounced by MIN_COMMAND_INTERVAL_SECONDS by default (see apply_guard);
 # entries here only override that default for a specific entity.
@@ -166,7 +168,8 @@ class PlugPolicyCoordinator:
         self._last_cooldown_log_ts_by_entity: dict[str, float] = {}
         self._reassert_history_by_entity: dict[str, list[tuple[str, float]]] = {}
         self._auto_suspended_by_device: dict[str, dict[str, Any]] = {}
-        self._display_unavailable_log_ts_by_entity: dict[str, float] = {}
+        # Missing key: available. None: already warned during this outage.
+        self._display_unavailable_since: dict[str, float | None] = {}
         self.last_context: dict[str, Any] = {}
         self.last_update_ts: float | None = None
 
@@ -413,7 +416,7 @@ class PlugPolicyCoordinator:
 
         if self.enable_control:
             await self._apply_decision(cfg, st, decision)
-            await self._apply_display(cfg, st, decision)
+            await self._apply_display(cfg, decision)
 
     def _resume_auto_suspended_if_stable(
         self,
@@ -538,43 +541,48 @@ class PlugPolicyCoordinator:
                 "plug_policy_engine: switch call failed for %s: %s", cfg.switch_entity, err,
             )
 
-    async def _apply_display(self, cfg: DeviceConfig, st: DeviceState, dec: Decision) -> None:
+    async def _apply_display(self, cfg: DeviceConfig, dec: Decision) -> None:
         """Tablet-Screen schalten (additiv, gated). Domain-agnostisch via
         ``homeassistant.turn_on/off`` (display_entity kann switch/light/input_boolean
         sein). Idempotent: nur schalten, wenn der Ist-Zustand abweicht."""
-        if not cfg.display_entity:
+        entity_id = cfg.display_entity
+        if not entity_id:
             return
+        # The display may have changed while applying the charger decision.
+        state = self._read_str(entity_id)
+        available = service_target_state_available(state)
+        if available:
+            self._display_unavailable_since.pop(entity_id, None)
         if dec.desired_display_state not in (DESIRED_ON, DESIRED_OFF):
             return
-        target_state = "on" if dec.desired_display_state == DESIRED_ON else "off"
-        current = (st.display_state or "").lower()
-        if not service_target_state_available(current):
-            now_ts = dt_util.utcnow().timestamp()
-            last_log_ts = self._display_unavailable_log_ts_by_entity.get(cfg.display_entity)
-            if last_log_ts is None or now_ts - last_log_ts >= MIN_COMMAND_INTERVAL_SECONDS:
-                self._display_unavailable_log_ts_by_entity[cfg.display_entity] = now_ts
+        if not available:
+            now = monotonic()
+            since = self._display_unavailable_since.setdefault(entity_id, now)
+            if since is not None and now - since >= _DISPLAY_UNAVAILABLE_WARN_AFTER_SECONDS:
+                self._display_unavailable_since[entity_id] = None
                 _LOGGER.warning(
-                    "plug_policy_engine: skipped display service for %s; current state is %r",
-                    cfg.display_entity,
-                    st.display_state,
+                    "plug_policy_engine: display %s unavailable for %.0fs (state: %r)",
+                    entity_id, now - since, state,
                 )
             return
+        target_state = "on" if dec.desired_display_state == DESIRED_ON else "off"
+        current = (state or "").lower()
         if current == target_state:
             return
         service = "turn_on" if dec.desired_display_state == DESIRED_ON else "turn_off"
         try:
             await self.hass.services.async_call(
                 "homeassistant", service, {}, blocking=False,
-                target={"entity_id": cfg.display_entity},
+                target={"entity_id": entity_id},
             )
             _LOGGER.info(
                 "plug_policy_engine: display %s on %s — %s",
-                service, cfg.display_entity, dec.reason,
+                service, entity_id, dec.reason,
             )
         except Exception as err:  # noqa: BLE001
             _LOGGER.error(
                 "plug_policy_engine: display call failed for %s: %s",
-                cfg.display_entity, err,
+                entity_id, err,
             )
 
     def _clear_pending_action_if_reached(self, device_id: str, switch_state: str | None) -> None:

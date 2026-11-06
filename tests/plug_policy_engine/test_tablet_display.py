@@ -1,8 +1,20 @@
 """Tests für die additive Tablet-Display-Policy (v0.2.0, FLEET-156) — HA-frei."""
 from __future__ import annotations
 
+import asyncio
+import logging
+from unittest.mock import AsyncMock
+
+import pytest
+
 import pp_const as C
 import pp_engine as E
+from tests.plug_policy_engine.test_power_sources import (
+    _FakeEntry,
+    _FakeHass,
+    _FakeState,
+    _load_coordinator_module,
+)
 
 DISPLAY = "switch.tablet_screen"
 
@@ -120,3 +132,126 @@ def test_non_tablet_display_defaults_keep():
         _ctx(presence=C.PRESENCE_HOME, bio=C.BIO_AWAKE),
     )
     assert d.desired_display_state == C.DESIRED_KEEP
+
+
+SCREEN = "light.tablet_screen"
+BIO = "sensor.bio"
+
+
+@pytest.fixture
+def display_coordinator(monkeypatch):
+    mod = _load_coordinator_module()
+    states = {
+        "sensor.presence": _FakeState(C.PRESENCE_HOME),
+        BIO: _FakeState(C.BIO_AWAKE),
+        "sensor.tablet_battery": _FakeState("55"),
+        "switch.tablet_charger": _FakeState("on"),
+    }
+    hass = _FakeHass(states)
+    hass.is_running = True
+    entry = _FakeEntry({
+        C.CONF_ENABLE_CONTROL: True,
+        C.CONF_PRESENCE: "sensor.presence",
+        C.CONF_BIO: BIO,
+        C.CONF_DEVICES: [{
+            "device_id": "tablet",
+            C.CONF_SWITCH: "switch.tablet_charger",
+            C.CONF_BATTERY: "sensor.tablet_battery",
+            C.CONF_KIND: C.KIND_TABLET,
+            C.CONF_DISPLAY_ENTITY: SCREEN,
+        }],
+    })
+    coord = mod.PlugPolicyCoordinator(hass, entry)
+    clock = [0.0]
+    monkeypatch.setattr(mod, "monotonic", lambda: clock[0])
+    return mod, coord, states, clock
+
+
+@pytest.mark.parametrize(
+    ("unavailable", "bio", "recovered_state", "service"),
+    [
+        ("unavailable", C.BIO_SLEEP, "on", "turn_off"),
+        (None, C.BIO_AWAKE, "off", "turn_on"),
+        ("unknown", C.BIO_AWAKE, "off", "turn_on"),
+    ],
+)
+def test_display_reconciles_current_intent_on_recovery(
+    display_coordinator, monkeypatch, caplog, unavailable, bio, recovered_state, service,
+):
+    mod, coord, states, clock = display_coordinator
+    states[SCREEN] = None if unavailable is None else _FakeState(unavailable)
+    states[BIO] = _FakeState(C.BIO_AWAKE if bio == C.BIO_SLEEP else C.BIO_SLEEP)
+    listeners = {}
+    tasks = []
+
+    def track_state_changes(_hass, entity_ids, listener):
+        listeners.update(dict.fromkeys(entity_ids, listener))
+        return lambda: None
+
+    monkeypatch.setattr(mod, "async_track_state_change_event", track_state_changes)
+    coord.hass.async_create_task = lambda coro: tasks.append(asyncio.create_task(coro))
+
+    async def run():
+        await coord.async_init()
+        clock[0] = 20
+        states[BIO] = _FakeState(bio)
+        listeners[BIO](None)
+        await tasks.pop()
+        assert coord.hass.services.calls == []
+
+        states[SCREEN] = _FakeState(recovered_state)
+        listeners[SCREEN](None)
+        await tasks.pop()
+        assert len(coord.hass.services.calls) == 1
+        call = coord.hass.services.calls[0]
+        assert (call["domain"], call["service"], call["target"]) == (
+            "homeassistant", service, {"entity_id": SCREEN},
+        )
+        assert not caplog.records
+
+    asyncio.run(run())
+
+
+def test_display_warns_once_per_persistent_outage(display_coordinator, caplog):
+    _, coord, states, clock = display_coordinator
+    states[SCREEN] = _FakeState("unavailable")
+
+    async def run():
+        await coord.async_evaluate_all()
+        clock[0] = 59
+        await coord.async_evaluate_all()
+        assert not caplog.records
+
+        clock[0] = 60
+        await coord.async_evaluate_all()
+        clock[0] = 120
+        await coord.async_evaluate_all()
+        assert len(caplog.records) == 1
+        assert caplog.records[0].levelno == logging.WARNING
+        assert SCREEN in caplog.records[0].message
+
+        states[SCREEN] = _FakeState("on")
+        await coord.async_evaluate_all()
+        del states[SCREEN]
+        await coord.async_evaluate_all()
+        assert len(caplog.records) == 1
+        clock[0] = 180
+        await coord.async_evaluate_all()
+        assert len(caplog.records) == 2
+        assert coord.hass.services.calls == []
+
+    asyncio.run(run())
+
+
+def test_display_checks_availability_after_charger_apply(display_coordinator):
+    _, coord, states, _ = display_coordinator
+    states[SCREEN] = _FakeState("off")
+
+    async def drop_display(*_args):
+        states[SCREEN] = _FakeState("unavailable")
+
+    coord._apply_decision = AsyncMock(side_effect=drop_display)
+    asyncio.run(coord.async_evaluate_all())
+
+    coord._apply_decision.assert_awaited_once()
+    assert coord.hass.services.calls == []

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.7
+
+- Issue #21: Use the supported device registry lookup when pruning stale devices.
+- Skip tablet display service calls while the target is unavailable and reconcile
+  when it returns. Warn once per outage after 60 seconds of unavailability.
+
 ## 0.3.5
 
 - Issue #22: Bias-Light decisions now use `sensor.benni_master_tv` as the sole

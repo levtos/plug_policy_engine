@@ -127,9 +127,7 @@ def _async_prune_stale_devices(
     configured = set(coord.configs)
     dev_reg = dr.async_get(hass)
     removed = 0
-    for device in list(dev_reg.devices.values()):
-        if entry.entry_id not in device.config_entries:
-            continue
+    for device in dr.async_entries_for_config_entry(dev_reg, entry.entry_id):
         our_ident = next(
             (ident for (domain, ident) in device.identifiers if domain == DOMAIN),
             None,
